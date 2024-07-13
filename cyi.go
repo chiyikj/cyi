@@ -3,7 +3,6 @@ package cyi
 import (
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"reflect"
@@ -145,16 +144,16 @@ func (cyi *cyi) Interceptor(interceptors ...func(method string, state map[string
 func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
-		if err != nil {
+		id := r.URL.Query().Get("id")
+		if err != nil || r.URL.Query().Get("id") == "" {
 			return
 		}
-		id := uuid.New().String()
 		defer func(conn *websocket.Conn) {
 			_ = conn.Close()
 			cyi.connList.Delete(id)
 		}(conn)
 		// 处理WebSocket连接
-		ctx := Ctx{Ip: getIp(r), State: make(map[string]string), Send: cyi.Send, Plugin: cyi.Plugin}
+		ctx := Ctx{Ip: getIp(r), State: make(map[string]string), Send: cyi.Send, Plugin: cyi.Plugin, Id: id}
 		cyi.connList.Store(id, connKey{ws: conn, subscribe: make(map[string]bool)})
 		for {
 			var request = &request{}
