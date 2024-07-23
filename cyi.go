@@ -166,7 +166,7 @@ func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
 				}
 				result = resultCallError("json: " + err.Error())
 			} else if request.MethodName == "heartbeat" {
-				break
+				continue
 			} else if request.Id == "" || request.MethodName == "" || request.ArgumentList == nil {
 				result = resultCallError("json: cannot unmarshal number into Go value of type cyi.Request")
 			} else {
