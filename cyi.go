@@ -159,11 +159,15 @@ func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
 			var request = &request{}
 			var result Result
 			err := conn.ReadJSON(request)
-			if err != nil || request.Id == "" || request.MethodName == "" || request.ArgumentList == nil {
+			if err != nil {
 				var closeError *websocket.CloseError
 				if errors.As(err, &closeError) {
 					return
 				}
+				result = resultCallError("json: " + err.Error())
+			} else if request.MethodName == "heartbeat" {
+				break
+			} else if request.Id == "" || request.MethodName == "" || request.ArgumentList == nil {
 				result = resultCallError("json: cannot unmarshal number into Go value of type cyi.Request")
 			} else {
 				if request.MethodName == "watch" || request.MethodName == "delWatch" {
@@ -187,7 +191,6 @@ func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
 								result = resultCallError(request.errorMsg)
 							} else {
 								result = request.result
-
 							}
 						}
 						ctx.State = make(map[string]string)
