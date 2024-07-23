@@ -145,13 +145,13 @@ func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
 		id := r.URL.Query().Get("id")
-		if err != nil || r.URL.Query().Get("id") == "" {
-			return
-		}
 		defer func(conn *websocket.Conn) {
 			_ = conn.Close()
 			cyi.connList.Delete(id)
 		}(conn)
+		if err != nil || r.URL.Query().Get("id") == "" {
+			return
+		}
 		// 处理WebSocket连接
 		ctx := Ctx{Ip: getIp(r), State: make(map[string]string), Send: cyi.Send, Plugin: cyi.Plugin, Id: id}
 		cyi.connList.Store(id, connKey{ws: conn, subscribe: make(map[string]bool)})
@@ -162,7 +162,6 @@ func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
 			if err != nil || request.Id == "" || request.MethodName == "" || request.ArgumentList == nil {
 				var closeError *websocket.CloseError
 				if errors.As(err, &closeError) {
-					_ = conn.Close()
 					return
 				}
 				result = resultCallError("json: cannot unmarshal number into Go value of type cyi.Request")
