@@ -181,7 +181,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			if timer != nil {
 				timer.Stop()
 			}
-			timer = time.AfterFunc(10*time.Second, func() {
+			timer = time.AfterFunc(7*time.Second, func() {
 				closeFunc(conn, id, status)
 			})
 		}
