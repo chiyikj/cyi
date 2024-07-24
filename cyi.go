@@ -152,13 +152,15 @@ func (cyi *Cyi) Interceptor(interceptors ...func(method string, state map[string
 }
 
 func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
-	closeFunc := func(conn *websocket.Conn, id string, status *bool) {
+	closeFunc := func(conn *websocket.Conn, id string, status *bool, isShowClose bool) {
 		if !*status {
 			*status = true
 			_ = conn.Close()
-			cyi.connList.Delete(id)
-			if cyi.closeFunc != nil {
-				cyi.closeFunc(id)
+			if !isShowClose {
+				cyi.connList.Delete(id)
+				if cyi.closeFunc != nil {
+					cyi.closeFunc(id)
+				}
 			}
 		}
 	}
@@ -168,7 +170,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 		_status := false
 		status := &_status
 		defer func() {
-			closeFunc(conn, id, status)
+			closeFunc(conn, id, status, err != nil || r.URL.Query().Get("id") == "")
 		}()
 		if err != nil || r.URL.Query().Get("id") == "" {
 			return
@@ -177,15 +179,18 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			cyi.openFunc(id)
 		}
 		var timer *time.Timer
-		resetTimer := func() {
-			if timer != nil {
-				timer.Stop()
+		go func() {
+			for {
+				err = conn.WriteMessage(websocket.TextMessage, []byte("ping"))
+				if err != nil {
+					return
+				}
+				timer = time.AfterFunc(2*time.Second, func() {
+					closeFunc(conn, id, status, false)
+				})
+				time.Sleep(5 * time.Second)
 			}
-			timer = time.AfterFunc(10*time.Second, func() {
-				closeFunc(conn, id, status)
-			})
-		}
-		resetTimer()
+		}()
 		// 处理WebSocket连接
 		ctx := Ctx{Ip: getIp(r), State: make(map[string]string), Send: cyi.Send, Plugin: cyi.Plugin, Id: id}
 		cyi.connList.Store(id, connKey{ws: conn, subscribe: make(map[string]bool)})
@@ -199,11 +204,9 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				result = resultCallError("json: " + err.Error())
-			} else if request.MethodName == "ping" {
-				resetTimer()
-				err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
-				if err != nil {
-					return
+			} else if request.MethodName == "pong" {
+				if timer != nil {
+					timer.Stop()
 				}
 				continue
 			} else if request.Id == "" || request.MethodName == "" || request.ArgumentList == nil {
