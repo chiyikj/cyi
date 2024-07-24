@@ -152,8 +152,10 @@ func (cyi *Cyi) Interceptor(interceptors ...func(method string, state map[string
 }
 
 func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
-	closeFunc := func(conn *websocket.Conn, id string, status bool) {
-		if !status {
+	closeFunc := func(conn *websocket.Conn, id string, status *bool) {
+		if !*status {
+			_statue := true
+			status = &_statue
 			_ = conn.Close()
 			cyi.connList.Delete(id)
 			if cyi.closeFunc != nil {
@@ -164,7 +166,8 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
 		id := r.URL.Query().Get("id")
-		status := false
+		_statue := false
+		status := &_statue
 		defer func() {
 			closeFunc(conn, id, status)
 		}()
@@ -285,5 +288,4 @@ func cellMethod(request *request, _method *method, ctx Ctx, cyi *Cyi) {
 		}
 	}
 	request._ArgumentList = append([]reflect.Value{newStruct}, request._ArgumentList...)
-	request.result = newMethod.Func.Call(request._ArgumentList)[0].Interface().(Result)
-}
+	request.result = newMethod.Func.Call(request._ArgumentList)[0].Interf
