@@ -165,8 +165,8 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
 		id := r.URL.Query().Get("id")
-		_statue := false
-		status := &_statue
+		_status := false
+		status := &_status
 		defer func() {
 			closeFunc(conn, id, status)
 		}()
