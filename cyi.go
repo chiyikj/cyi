@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type request struct {
@@ -32,12 +33,14 @@ type connKey struct {
 	subscribe map[string]bool
 }
 
-type cyi struct {
+type Cyi struct {
 	services     map[string]*method
 	connList     *sync.Map
 	channel      map[string]bool
 	interceptors []func(method string, state map[string]string) *Result
 	plugin       map[string]any
+	openFunc     func(id string)
+	closeFunc    func(id string)
 }
 
 type method struct {
@@ -53,8 +56,8 @@ type form struct {
 	isBasicType bool
 }
 
-func New() *cyi {
-	return &cyi{
+func New() *Cyi {
+	return &Cyi{
 		services: map[string]*method{},
 		connList: &sync.Map{},
 		channel:  make(map[string]bool),
@@ -62,7 +65,7 @@ func New() *cyi {
 	}
 }
 
-func (cyi *cyi) Start(addr uint16, ssl ...string) {
+func (cyi *Cyi) Start(addr uint16, ssl ...string) {
 	http.HandleFunc("/", handleWebSocket(cyi))
 	if len(ssl) == 2 {
 		http.ListenAndServeTLS(":"+strconv.Itoa(int(addr)), ssl[0], ssl[1], nil)
@@ -71,15 +74,22 @@ func (cyi *cyi) Start(addr uint16, ssl ...string) {
 	}
 }
 
-func (cyi *cyi) SetPlugin(key string, value any) {
+func (cyi *Cyi) SetPlugin(key string, value any) {
 	cyi.plugin[key] = value
 }
+func (cyi *Cyi) OnOpen(callback func(id string)) {
+	cyi.openFunc = callback
+}
 
-func (cyi *cyi) Plugin(key string) any {
+func (cyi *Cyi) OnClose(callback func(id string)) {
+	cyi.closeFunc = callback
+}
+
+func (cyi *Cyi) Plugin(key string) any {
 	return cyi.plugin[key]
 }
 
-func (cyi *cyi) Bind(services ...any) {
+func (cyi *Cyi) Bind(services ...any) {
 	for _, service := range services {
 		valueType := reflect.TypeOf(service)
 		if valueType.Kind() == reflect.Struct {
@@ -135,23 +145,45 @@ func (cyi *cyi) Bind(services ...any) {
 	}
 }
 
-func (cyi *cyi) Interceptor(interceptors ...func(method string, state map[string]string) *Result) {
+func (cyi *Cyi) Interceptor(interceptors ...func(method string, state map[string]string) *Result) {
 	for _, interceptor := range interceptors {
 		cyi.interceptors = append(cyi.interceptors, interceptor)
 	}
 }
 
-func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
+func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
+	closeFunc := func(conn *websocket.Conn, id string, status bool) {
+		if !status {
+			_ = conn.Close()
+			cyi.connList.Delete(id)
+			if cyi.closeFunc != nil {
+				cyi.closeFunc(id)
+			}
+		}
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
 		id := r.URL.Query().Get("id")
-		defer func(conn *websocket.Conn) {
-			_ = conn.Close()
-			cyi.connList.Delete(id)
-		}(conn)
+		status := false
+		defer func() {
+			closeFunc(conn, id, status)
+		}()
 		if err != nil || r.URL.Query().Get("id") == "" {
 			return
 		}
+		if cyi.openFunc != nil {
+			cyi.openFunc(id)
+		}
+		var timer *time.Timer
+		resetTimer := func() {
+			if timer != nil {
+				timer.Stop()
+			}
+			timer = time.AfterFunc(10*time.Second, func() {
+				closeFunc(conn, id, status)
+			})
+		}
+		resetTimer()
 		// 处理WebSocket连接
 		ctx := Ctx{Ip: getIp(r), State: make(map[string]string), Send: cyi.Send, Plugin: cyi.Plugin, Id: id}
 		cyi.connList.Store(id, connKey{ws: conn, subscribe: make(map[string]bool)})
@@ -165,7 +197,12 @@ func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				result = resultCallError("json: " + err.Error())
-			} else if request.MethodName == "heartbeat" {
+			} else if request.MethodName == "ping" {
+				resetTimer()
+				err = conn.WriteMessage(0, []byte("pong"))
+				if err != nil {
+					return
+				}
 				continue
 			} else if request.Id == "" || request.MethodName == "" || request.ArgumentList == nil {
 				result = resultCallError("json: cannot unmarshal number into Go value of type cyi.Request")
@@ -197,7 +234,7 @@ func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			if request.MethodName != "watch" && request.MethodName != "delWatch" {
+			if (request.MethodName != "watch" && request.MethodName != "delWatch") || request.errorMsg != "" {
 				result.Id = request.Id
 				err = conn.WriteJSON(result)
 				if err != nil {
@@ -208,7 +245,7 @@ func handleWebSocket(cyi *cyi) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleWatch(cyi *cyi, id string, conn *websocket.Conn, request *request, result Result) {
+func handleWatch(cyi *Cyi, id string, conn *websocket.Conn, request *request, result Result) {
 	key, ok := request.ArgumentList[0].(string)
 	if !ok {
 		request.errorMsg = "cyi: Invalid key format. Please provide a string key."
@@ -222,7 +259,7 @@ func handleWatch(cyi *cyi, id string, conn *websocket.Conn, request *request, re
 }
 
 // 执行方法
-func cellMethod(request *request, _method *method, ctx Ctx, cyi *cyi) {
+func cellMethod(request *request, _method *method, ctx Ctx, cyi *Cyi) {
 	defer func() {
 		if r := recover(); r != nil {
 			request.errorMsg = fmt.Sprintf("%v", r)
