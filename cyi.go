@@ -288,4 +288,5 @@ func cellMethod(request *request, _method *method, ctx Ctx, cyi *Cyi) {
 		}
 	}
 	request._ArgumentList = append([]reflect.Value{newStruct}, request._ArgumentList...)
-	request.result = newMethod.Func.Call(request._ArgumentList)[0].Interf
+	request.result = newMethod.Func.Call(request._ArgumentList)[0].Interface().(Result)
+}
