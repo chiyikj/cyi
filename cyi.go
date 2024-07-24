@@ -154,8 +154,7 @@ func (cyi *Cyi) Interceptor(interceptors ...func(method string, state map[string
 func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	closeFunc := func(conn *websocket.Conn, id string, status *bool) {
 		if !*status {
-			_statue := true
-			status = &_statue
+			*status = true
 			_ = conn.Close()
 			cyi.connList.Delete(id)
 			if cyi.closeFunc != nil {
