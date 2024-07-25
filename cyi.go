@@ -26,6 +26,7 @@ var upgrade = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
+	Subprotocols: []string{""},
 }
 
 type connKey struct {
