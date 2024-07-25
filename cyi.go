@@ -165,7 +165,7 @@ func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, s
 	if timer != nil {
 		timer.Stop()
 	}
-	timer = time.AfterFunc(7*time.Second, func() {
+	*timer = *time.AfterFunc(7*time.Second, func() {
 		cyi.closeFuncCell(conn, id, status)
 	})
 }
