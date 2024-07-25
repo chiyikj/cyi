@@ -174,7 +174,6 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			Subprotocols: []string{id},
 		}
 		conn, err := upgrade.Upgrade(w, r, nil)
-		fmt.Println(err)
 		_status := false
 		status := &_status
 		defer func() {
