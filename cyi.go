@@ -171,9 +171,9 @@ func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, s
 }
 func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrade.Upgrade(w, r, nil)
 		id := r.Header.Get("sec-websocket-protocol")
 		w.Header().Set("sec-websocket-protocol", id)
+		conn, err := upgrade.Upgrade(w, r, nil)
 		_status := false
 		status := &_status
 		defer func() {
