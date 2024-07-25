@@ -178,7 +178,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			cyi.closeFuncCell(conn, id, status)
 		}()
-		if err != nil || r.URL.Query().Get("id") == "" {
+		if err != nil || id == "" {
 			return
 		}
 		if cyi.openFunc != nil {
