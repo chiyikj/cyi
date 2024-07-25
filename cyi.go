@@ -22,13 +22,6 @@ type request struct {
 	_ArgumentList []reflect.Value
 }
 
-var upgrade = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-	Subprotocols: []string{"c"},
-}
-
 type connKey struct {
 	ws        *websocket.Conn
 	subscribe map[string]bool
@@ -171,14 +164,14 @@ func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, s
 }
 func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrade.Upgrade(w, r, nil)
-		protocols := strings.Split(r.Header.Get("sec-websocket-protocol"), ", ")
-		var id string
-		if len(protocols) != 2 {
-			id = ""
-		} else {
-			id = protocols[1]
+		id := r.Header.Get("sec-websocket-protocol")
+		var upgrade = websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+			Subprotocols: []string{id},
 		}
+		conn, err := upgrade.Upgrade(w, r, nil)
 		_status := false
 		status := &_status
 		defer func() {
