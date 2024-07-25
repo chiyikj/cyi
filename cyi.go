@@ -206,7 +206,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 				}
 				result = resultCallError("json: " + err.Error())
 			} else if request.MethodName == "ping" {
-				cyi.resetTimer(timer, conn, id, status)
+				timer = cyi.resetTimer(timer, conn, id, status)
 				err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
 				if err != nil {
 					return
