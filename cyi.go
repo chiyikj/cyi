@@ -174,7 +174,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
 		protocols := strings.Split(r.Header.Get("sec-websocket-protocol"), ", ")
 		var id string
-		if len(protocols) != 2 || protocols[0] != "c" {
+		if len(protocols) != 2 {
 			id = ""
 		} else {
 			id = protocols[1]
