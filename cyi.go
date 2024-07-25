@@ -161,11 +161,11 @@ func (cyi *Cyi) closeFuncCell(conn *websocket.Conn, id string, status *bool) {
 		}
 	}
 }
-func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, status *bool) {
+func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, status *bool) *time.Timer {
 	if timer != nil {
 		timer.Stop()
 	}
-	*timer = *time.AfterFunc(7*time.Second, func() {
+	return time.AfterFunc(7*time.Second, func() {
 		cyi.closeFuncCell(conn, id, status)
 	})
 }
@@ -191,7 +191,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			cyi.openFunc(id)
 		}
 		var timer *time.Timer
-		cyi.resetTimer(timer, conn, id, status)
+		timer = cyi.resetTimer(timer, conn, id, status)
 		// 处理WebSocket连接
 		ctx := Ctx{Ip: getIp(r), State: make(map[string]string), Send: cyi.Send, Plugin: cyi.Plugin, Id: id}
 		cyi.connList.Store(id, connKey{ws: conn, subscribe: make(map[string]bool)})
