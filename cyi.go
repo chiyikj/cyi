@@ -147,10 +147,12 @@ func (cyi *Cyi) Interceptor(interceptors ...func(method string, state map[string
 func (cyi *Cyi) closeFuncCell(conn *websocket.Conn, id string, status *bool) {
 	if !*status {
 		*status = true
-		_ = conn.Close()
-		cyi.connList.Delete(id)
-		if cyi.closeFunc != nil {
-			cyi.closeFunc(id)
+		if conn != nil {
+			_ = conn.Close()
+			cyi.connList.Delete(id)
+			if cyi.closeFunc != nil {
+				cyi.closeFunc(id)
+			}
 		}
 	}
 }
