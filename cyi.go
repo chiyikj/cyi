@@ -150,25 +150,32 @@ func (cyi *Cyi) Interceptor(interceptors ...func(method string, state map[string
 		cyi.interceptors = append(cyi.interceptors, interceptor)
 	}
 }
-
-func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
-	closeFunc := func(conn *websocket.Conn, id string, status *bool) {
-		if !*status {
-			*status = true
-			_ = conn.Close()
-			cyi.connList.Delete(id)
-			if cyi.closeFunc != nil {
-				cyi.closeFunc(id)
-			}
+func (cyi *Cyi) closeFuncCell(conn *websocket.Conn, id string, status *bool) {
+	if !*status {
+		*status = true
+		_ = conn.Close()
+		cyi.connList.Delete(id)
+		if cyi.closeFunc != nil {
+			cyi.closeFunc(id)
 		}
 	}
+}
+func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, status *bool) {
+	if timer != nil {
+		timer.Stop()
+	}
+	timer = time.AfterFunc(7*time.Second, func() {
+		cyi.closeFuncCell(conn, id, status)
+	})
+}
+func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
 		id := r.URL.Query().Get("id")
 		_status := false
 		status := &_status
 		defer func() {
-			closeFunc(conn, id, status)
+			cyi.closeFuncCell(conn, id, status)
 		}()
 		if err != nil || r.URL.Query().Get("id") == "" {
 			return
@@ -177,15 +184,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			cyi.openFunc(id)
 		}
 		var timer *time.Timer
-		resetTimer := func() {
-			if timer != nil {
-				timer.Stop()
-			}
-			timer = time.AfterFunc(7*time.Second, func() {
-				closeFunc(conn, id, status)
-			})
-		}
-		resetTimer()
+		cyi.resetTimer(timer, conn, id, status)
 		// 处理WebSocket连接
 		ctx := Ctx{Ip: getIp(r), State: make(map[string]string), Send: cyi.Send, Plugin: cyi.Plugin, Id: id}
 		cyi.connList.Store(id, connKey{ws: conn, subscribe: make(map[string]bool)})
@@ -200,7 +199,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 				}
 				result = resultCallError("json: " + err.Error())
 			} else if request.MethodName == "ping" {
-				resetTimer()
+				cyi.resetTimer(timer, conn, id, status)
 				err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
 				if err != nil {
 					return
