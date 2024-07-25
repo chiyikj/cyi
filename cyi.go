@@ -172,7 +172,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
 		id := r.Header.Get("sec-websocket-protocol")
-		w.Header().Set("sec-websocket-protocol", "id")
+		w.Header().Set("sec-websocket-protocol", id)
 		_status := false
 		status := &_status
 		defer func() {
