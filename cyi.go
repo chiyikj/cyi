@@ -172,13 +172,19 @@ func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, s
 func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
-		id := strings.Split(r.Header.Get("sec-websocket-protocol"), ", ")[1]
+		protocols := strings.Split(r.Header.Get("sec-websocket-protocol"), ", ")
+		var id string
+		if len(protocols) != 2 {
+			id = ""
+		} else {
+			id = protocols[1]
+		}
 		_status := false
 		status := &_status
 		defer func() {
 			cyi.closeFuncCell(conn, id, status)
 		}()
-		if err != nil || id == "" {
+		if err != nil {
 			return
 		}
 		if cyi.openFunc != nil {
