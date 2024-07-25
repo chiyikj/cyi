@@ -26,7 +26,7 @@ var upgrade = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
-	Subprotocols: []string{},
+	Subprotocols: []string{""},
 }
 
 type connKey struct {
@@ -172,7 +172,7 @@ func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, s
 func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get("sec-websocket-protocol")
-		upgrade.Subprotocols[0] = id
+		upgrade.Subprotocols = id
 		conn, err := upgrade.Upgrade(w, r, nil)
 		_status := false
 		status := &_status
