@@ -8,6 +8,11 @@ func (cyi *Cyi) watch(id string, keys []string, conn *websocket.Conn) {
 		if cyi.channel[key] {
 			_conn.(connKey).subscribe[key] = true
 		} else {
+			for _, key := range keys {
+				if cyi.channel[key] {
+					delete(_conn.(connKey).subscribe, key)
+				}
+			}
 			err := conn.WriteJSON([]any{
 				id, resultCallError("cyi: key not string"),
 			})
@@ -15,6 +20,7 @@ func (cyi *Cyi) watch(id string, keys []string, conn *websocket.Conn) {
 				conn.Close()
 				return
 			}
+			return
 		}
 	}
 }
