@@ -249,7 +249,7 @@ func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
 		key, ok := value.(string)
 		if !ok {
 			err := conn.WriteJSON([]any{
-				key, "cyi: key not string",
+				key, resultCallError("cyi: key not string"),
 			})
 			if err != nil {
 				conn.Close()
