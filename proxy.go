@@ -14,7 +14,7 @@ func (cyi *Cyi) watch(id string, keys []string, conn *websocket.Conn) {
 				}
 			}
 			err := conn.WriteJSON([]any{
-				id, resultCallError("cyi: key not string"),
+				id, resultCallError("cyi: The server does not have a subscription for this key"),
 			})
 			if err != nil {
 				conn.Close()
