@@ -262,7 +262,7 @@ func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
 		} else {
 			cyi.delWatch(id, key)
 			err := conn.WriteJSON([]any{
-				key,
+				key + request.Id,
 			})
 			if err != nil {
 				conn.Close()
