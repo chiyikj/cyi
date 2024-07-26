@@ -250,7 +250,7 @@ func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
 		key, ok := value.(string)
 		if !ok {
 			err := conn.WriteJSON([]any{
-				id, resultCallError("cyi: key not string"),
+				request.Id, resultCallError("cyi: key not string"),
 			})
 			if err != nil {
 				conn.Close()
@@ -261,7 +261,7 @@ func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
 		keys = append(keys, key)
 	}
 	if request.MethodName == "watch" {
-		cyi.watch(id, keys, conn)
+		cyi.watch(id, keys, conn, request.Id)
 	} else {
 		cyi.delWatch(id, keys)
 		err := conn.WriteJSON([]any{

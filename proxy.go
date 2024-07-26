@@ -2,7 +2,7 @@ package cyi
 
 import "github.com/gorilla/websocket"
 
-func (cyi *Cyi) watch(id string, keys []string, conn *websocket.Conn) {
+func (cyi *Cyi) watch(id string, keys []string, conn *websocket.Conn, requestId string) {
 	_conn, _ := cyi.connList.Load(id)
 	for _, key := range keys {
 		if cyi.channel[key] {
@@ -14,7 +14,7 @@ func (cyi *Cyi) watch(id string, keys []string, conn *websocket.Conn) {
 				}
 			}
 			err := conn.WriteJSON([]any{
-				id, resultCallError("cyi: The server does not have a subscription for this key"),
+				requestId, resultCallError("cyi: The server does not have a subscription for this key"),
 			})
 			if err != nil {
 				conn.Close()
