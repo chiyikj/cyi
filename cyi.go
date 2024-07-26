@@ -245,11 +245,12 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
+	var keys []string
 	for _, value := range request.ArgumentList {
 		key, ok := value.(string)
 		if !ok {
 			err := conn.WriteJSON([]any{
-				key, resultCallError("cyi: key not string"),
+				id, resultCallError("cyi: key not string"),
 			})
 			if err != nil {
 				conn.Close()
@@ -257,17 +258,18 @@ func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
 			}
 			continue
 		}
-		if request.MethodName == "watch" {
-			cyi.watch(id, key, conn)
-		} else {
-			cyi.delWatch(id, key)
-			err := conn.WriteJSON([]any{
-				key + request.Id,
-			})
-			if err != nil {
-				conn.Close()
-				return
-			}
+		keys = append(keys, key)
+	}
+	if request.MethodName == "watch" {
+		cyi.watch(id, keys, conn)
+	} else {
+		cyi.delWatch(id, keys)
+		err := conn.WriteJSON([]any{
+			request.Id,
+		})
+		if err != nil {
+			conn.Close()
+			return
 		}
 	}
 }
