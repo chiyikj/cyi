@@ -1,11 +1,19 @@
 package cyi
 
-func (cyi *Cyi) watch(id string, key string, request *request) {
+import "github.com/gorilla/websocket"
+
+func (cyi *Cyi) watch(id string, key string, conn *websocket.Conn) {
 	_conn, _ := cyi.connList.Load(id)
 	if cyi.channel[key] {
 		_conn.(connKey).subscribe[key] = true
 	} else {
-		request.errorMsg = "cyi: The server does not have a subscription for this key"
+		err := conn.WriteJSON([]any{
+			key, "cyi: The server does not have a subscription for this key",
+		})
+		if err != nil {
+			conn.Close()
+			return
+		}
 	}
 }
 

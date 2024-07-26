@@ -199,7 +199,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 				if errors.As(err, &closeError) {
 					return
 				}
-				result = resultCallError("json: " + err.Error())
+				result = resultCallError(err.Error())
 			} else if request.MethodName == "ping" {
 				timer = cyi.resetTimer(timer, conn, id, status)
 				err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
@@ -211,10 +211,8 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 				result = resultCallError("json: cannot unmarshal number into Go value of type cyi.Request")
 			} else {
 				if request.MethodName == "watch" || request.MethodName == "delWatch" {
-					handleWatch(cyi, id, conn, request, result)
-					if request.errorMsg != "" {
-						result = resultCallError(request.errorMsg)
-					}
+					handleWatch(cyi, id, request, conn)
+					continue
 				} else {
 					var method = cyi.services[request.MethodName]
 					if method == nil {
@@ -237,27 +235,33 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			if (request.MethodName != "watch" && request.MethodName != "delWatch") || request.errorMsg != "" {
-				result.Id = request.Id
-				err = conn.WriteJSON(result)
-				if err != nil {
-					return
-				}
+			result.Id = request.Id
+			err = conn.WriteJSON(result)
+			if err != nil {
+				return
 			}
 		}
 	}
 }
 
-func handleWatch(cyi *Cyi, id string, conn *websocket.Conn, request *request, result Result) {
-	key, ok := request.ArgumentList[0].(string)
-	if !ok {
-		request.errorMsg = "cyi: Invalid key format. Please provide a string key."
-		return
-	}
-	if request.MethodName == "watch" {
-		cyi.watch(id, key, request)
-	} else {
-		cyi.delWatch(id, key)
+func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
+	for _, value := range request.ArgumentList {
+		key, ok := value.(string)
+		if !ok {
+			err := conn.WriteJSON([]any{
+				key, "cyi: key not string",
+			})
+			if err != nil {
+				conn.Close()
+				return
+			}
+			continue
+		}
+		if request.MethodName == "watch" {
+			cyi.watch(id, key, conn)
+		} else {
+			cyi.delWatch(id, key)
+		}
 	}
 }
 
