@@ -48,7 +48,7 @@ func (cyi *Cyi) NewChannel(keys ...string) {
 	}
 }
 
-func (cyi *Cyi) Send(id string, key string, data Result) bool {
+func (cyi *Cyi) Send(id string, key string, data Result) {
 	conn, ok := cyi.connList.Load(id)
 	if ok {
 		connMap, _ := conn.(map[string]*connKey)
@@ -59,12 +59,8 @@ func (cyi *Cyi) Send(id string, key string, data Result) bool {
 				})
 				if err != nil {
 					_conn.ws.Close()
-					return false
-				} else {
-					return true
 				}
 			}
 		}
 	}
-	return false
 }
