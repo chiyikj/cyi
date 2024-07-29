@@ -3,15 +3,13 @@ package cyi
 import (
 	"errors"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 )
 
 type request struct {
@@ -146,30 +144,24 @@ func (cyi *Cyi) Interceptor(interceptors ...func(method string, state map[string
 		cyi.interceptors = append(cyi.interceptors, interceptor)
 	}
 }
-func (cyi *Cyi) closeFuncCell(conn *websocket.Conn, id string, status *bool, joinId string) {
+func (cyi *Cyi) closeFuncCell(conn *websocket.Conn, id string, status *bool) {
 	if !*status {
 		*status = true
 		if conn != nil {
 			_ = conn.Close()
-			_conn, _ := cyi.connList.Load(id)
-			connMap, _ := _conn.(map[string]*connKey)
-			if len(connMap) == 1 {
-				cyi.connList.Delete(id)
-			} else {
-				delete(connMap, joinId)
-			}
+			cyi.connList.Delete(id)
 			if cyi.closeFunc != nil {
 				cyi.closeFunc(id)
 			}
 		}
 	}
 }
-func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, status *bool, joinId string) *time.Timer {
+func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, status *bool) *time.Timer {
 	if timer != nil {
 		timer.Stop()
 	}
 	return time.AfterFunc(7*time.Second, func() {
-		cyi.closeFuncCell(conn, id, status, joinId)
+		cyi.closeFuncCell(conn, id, status)
 	})
 }
 func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
@@ -184,9 +176,8 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
 		_status := false
 		status := &_status
-		joinId := uuid.New().String()
 		defer func() {
-			cyi.closeFuncCell(conn, id, status, joinId)
+			cyi.closeFuncCell(conn, id, status)
 		}()
 		if err != nil || id == "" {
 			return
@@ -195,24 +186,10 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			cyi.openFunc(id)
 		}
 		var timer *time.Timer
-		timer = cyi.resetTimer(timer, conn, id, status, joinId)
+		timer = cyi.resetTimer(timer, conn, id, status)
 		// 处理WebSocket连接
 		ctx := Ctx{Ip: getIp(r), State: make(map[string]string), Send: cyi.Send, Plugin: cyi.Plugin, Id: id}
-		_conn, ok := cyi.connList.Load(id)
-		if ok {
-			connMap, _ := _conn.(map[string]*connKey)
-			connMap[joinId] = &connKey{
-				ws:        conn,
-				subscribe: make(map[string]bool),
-			}
-		} else {
-			cyi.connList.Store(id, map[string]*connKey{
-				joinId: {
-					ws:        conn,
-					subscribe: make(map[string]bool),
-				},
-			})
-		}
+		cyi.connList.Store(id, connKey{ws: conn, subscribe: make(map[string]bool)})
 		for {
 			var request = &request{}
 			var result Result
@@ -224,7 +201,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 				}
 				result = resultCallError(err.Error())
 			} else if request.MethodName == "ping" {
-				timer = cyi.resetTimer(timer, conn, id, status, joinId)
+				timer = cyi.resetTimer(timer, conn, id, status)
 				err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
 				if err != nil {
 					return
@@ -234,7 +211,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 				result = resultCallError("json: cannot unmarshal number into Go value of type cyi.Request")
 			} else {
 				if request.MethodName == "watch" || request.MethodName == "delWatch" {
-					handleWatch(cyi, id, request, conn, joinId)
+					handleWatch(cyi, id, request, conn)
 					continue
 				} else {
 					var method = cyi.services[request.MethodName]
@@ -267,7 +244,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn, joinId string) {
+func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
 	var keys []string
 	for _, value := range request.ArgumentList {
 		key, ok := value.(string)
@@ -284,9 +261,9 @@ func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn, jo
 		keys = append(keys, key)
 	}
 	if request.MethodName == "watch" {
-		cyi.watch(id, keys, conn, request.Id, joinId)
+		cyi.watch(id, keys, conn, request.Id)
 	} else {
-		cyi.delWatch(id, keys, joinId)
+		cyi.delWatch(id, keys)
 		err := conn.WriteJSON([]any{
 			request.Id,
 		})
