@@ -3,13 +3,14 @@ package cyi
 import (
 	"errors"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type request struct {
@@ -24,6 +25,7 @@ type request struct {
 
 type connKey struct {
 	ws        *websocket.Conn
+	mu        *sync.Mutex
 	subscribe map[string]bool
 }
 
@@ -236,8 +238,8 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			result.Id = request.Id
-			err = conn.WriteJSON(result)
-			if err != nil {
+			err1 := cyi.wsSend(id, result)
+			if err1 {
 				return
 			}
 		}
@@ -249,13 +251,9 @@ func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
 	for _, value := range request.ArgumentList {
 		key, ok := value.(string)
 		if !ok {
-			err := conn.WriteJSON([]any{
+			cyi.wsSend(id, []any{
 				request.Id, resultCallError("cyi: key not string"),
 			})
-			if err != nil {
-				conn.Close()
-				return
-			}
 			continue
 		}
 		keys = append(keys, key)
@@ -264,13 +262,9 @@ func handleWatch(cyi *Cyi, id string, request *request, conn *websocket.Conn) {
 		cyi.watch(id, keys, conn, request.Id)
 	} else {
 		cyi.delWatch(id, keys)
-		err := conn.WriteJSON([]any{
+		cyi.wsSend(id, []any{
 			request.Id,
 		})
-		if err != nil {
-			conn.Close()
-			return
-		}
 	}
 }
 
@@ -302,4 +296,21 @@ func cellMethod(request *request, _method *method, ctx Ctx, cyi *Cyi) {
 	}
 	request._ArgumentList = append([]reflect.Value{newStruct}, request._ArgumentList...)
 	request.result = newMethod.Func.Call(request._ArgumentList)[0].Interface().(Result)
+}
+
+func (cyi *Cyi) wsSend(id string, v interface{}) bool {
+	conn, ok := cyi.connList.Load(id)
+	if ok {
+		conn.(connKey).mu.Lock()
+		err := conn.(connKey).ws.WriteJSON(v)
+		conn.(connKey).mu.Unlock()
+		if err != nil {
+			conn.(connKey).ws.Close()
+			return false
+		} else {
+			return true
+		}
+	} else {
+		return false
+	}
 }

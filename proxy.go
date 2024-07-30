@@ -41,15 +41,10 @@ func (cyi *Cyi) NewChannel(keys ...string) {
 func (cyi *Cyi) Send(id string, key string, data Result) bool {
 	conn, ok := cyi.connList.Load(id)
 	if ok && conn.(connKey).subscribe[key] {
-		err := conn.(connKey).ws.WriteJSON([]any{
+		status := cyi.wsSend(id, []any{
 			key, data,
 		})
-		if err != nil {
-			conn.(connKey).ws.Close()
-			return false
-		} else {
-			return true
-		}
+		return status
 	} else {
 		return false
 	}
