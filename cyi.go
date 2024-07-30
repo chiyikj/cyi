@@ -166,7 +166,7 @@ func (cyi *Cyi) resetTimer(timer *time.Timer, conn *websocket.Conn, id string, s
 		timer.Stop()
 	}
 	return time.AfterFunc(7*time.Second, func() {
-		cyi.closeFuncCell(conn, id, status)
+		cyi.closeFuncCell(timer, conn, id, status)
 	})
 }
 func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
