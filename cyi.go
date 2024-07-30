@@ -195,7 +195,10 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 		for {
 			var request = &request{}
 			var result Result
+			_conn, _ := cyi.connList.Load(id)
+			_conn.(connKey).mu.Lock()
 			err := conn.ReadJSON(request)
+			_conn.(connKey).mu.Unlock()
 			if err != nil {
 				var closeError *websocket.CloseError
 				if errors.As(err, &closeError) {
