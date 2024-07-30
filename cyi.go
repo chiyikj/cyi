@@ -196,7 +196,6 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			var request = &request{}
 			var result Result
 			err := conn.ReadJSON(request)
-			fmt.Println(err, 566666)
 			if err != nil {
 				var closeError *websocket.CloseError
 				if errors.As(err, &closeError) {
