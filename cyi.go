@@ -1,7 +1,7 @@
 package cyi
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -197,8 +197,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			var result Result
 			err := conn.ReadJSON(request)
 			if err != nil {
-				var closeError *websocket.CloseError
-				if errors.As(err, &closeError) {
+				if _, ok := err.(*json.SyntaxError); !ok {
 					return
 				}
 				result = resultCallError(err.Error())
