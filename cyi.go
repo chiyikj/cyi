@@ -200,6 +200,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			var result Result
 			err := conn.ReadJSON(request)
 			if err != nil {
+				fmt.Println(err.Error())
 				if _, ok := err.(*json.SyntaxError); !ok {
 					return
 				}
