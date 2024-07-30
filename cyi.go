@@ -200,16 +200,20 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			var result Result
 			err := conn.ReadJSON(request)
 			if err != nil {
-				fmt.Println(err.Error())
 				if _, ok := err.(*json.SyntaxError); !ok {
 					return
 				}
 				result = resultCallError(err.Error())
 			} else if request.MethodName == "ping" {
 				timer = cyi.resetTimer(timer, conn, id, status)
-				err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
-				if err != nil {
-					return
+				_conn, ok := cyi.connList.Load(id)
+				if ok {
+					_conn.(connKey).mu.Lock()
+					err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
+					_conn.(connKey).mu.Unlock()
+					if err != nil {
+						return
+					}
 				}
 				continue
 			} else if request.Id == "" || request.MethodName == "" || request.ArgumentList == nil {
