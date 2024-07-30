@@ -246,7 +246,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			}
 			result.Id = request.Id
 			err1 := cyi.wsSend(id, result)
-			if err1 {
+			if !err1 {
 				return
 			}
 		}
