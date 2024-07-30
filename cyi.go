@@ -196,6 +196,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 			var request = &request{}
 			var result Result
 			err := conn.ReadJSON(request)
+			fmt.Println(err, 566666)
 			if err != nil {
 				var closeError *websocket.CloseError
 				if errors.As(err, &closeError) {
@@ -305,6 +306,7 @@ func (cyi *Cyi) wsSend(id string, v interface{}) bool {
 		err := conn.(connKey).ws.WriteJSON(v)
 		conn.(connKey).mu.Unlock()
 		if err != nil {
+			conn.(connKey).ws.Close()
 			return false
 		} else {
 			return true
