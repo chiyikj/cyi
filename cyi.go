@@ -191,7 +191,7 @@ func handleWebSocket(cyi *Cyi) func(w http.ResponseWriter, r *http.Request) {
 		timer = cyi.resetTimer(timer, conn, id, status)
 		// 处理WebSocket连接
 		ctx := Ctx{Ip: getIp(r), State: make(map[string]string), Send: cyi.Send, Plugin: cyi.Plugin, Id: id}
-		cyi.connList.Store(id, connKey{ws: conn, subscribe: make(map[string]bool)})
+		cyi.connList.Store(id, connKey{ws: conn, subscribe: make(map[string]bool), mu: &sync.Mutex{}})
 		for {
 			var request = &request{}
 			var result Result
